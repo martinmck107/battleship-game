@@ -75,10 +75,50 @@ The following features were tested and verified to work correctly:
 
 ---
 
+## Animation & Sound Enhancement (v2.0)
+
+### Implementation Notes
+
+The following animations and sounds were added to enhance the game experience:
+
+**Animations Implemented:**
+- Hit animation: Cell flashes and scales with explosion effect
+- Miss animation: Ripple effect with water splash
+- Sunk animation: Shake effect for all cells of the sunk ship
+- AI thinking indicator: Pulsing "AI Thinking..." text during AI turn
+- Sunk ship notification: Slide-in animation from the right
+
+**Sounds Implemented:**
+- Fire sound: Whoosh effect when firing
+- Hit confirmation: Explosion-like sound
+- Miss: Water splash sound
+- Ship sunk: Dramatic descending tone sequence
+- Win: Victory fanfare
+- Loss: Defeat sound
+
+**Sound System:**
+- Uses Web Audio API for reliable cross-browser sound generation
+- Procedurally generated tones (no external audio files needed)
+- Mute/unmute toggle in top-right corner
+- Respects browser autoplay restrictions
+
+### Testing Results
+
+All animations and sounds were tested and verified to work correctly:
+- Animations trigger reliably without desyncing game state
+- Sounds play at appropriate times
+- Mute toggle works correctly
+- No console errors related to audio or animation
+- AI thinking indicator shows during AI turn delay
+
+No bugs were discovered during animation/sound testing.
+
+---
+
 ## Potential Future Improvements
 
 1. Add ship preview during placement (show where ship will be placed before clicking)
-2. Add sound effects for hits and misses
-3. Add animation for ship sinking
+2. ~~Add sound effects for hits and misses~~ (DONE in v2.0)
+3. ~~Add animation for ship sinking~~ (DONE in v2.0)
 4. Implement difficulty levels for AI
 5. Add local storage to save game progress

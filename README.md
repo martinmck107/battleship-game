@@ -15,6 +15,15 @@ Play the game online: [Battleship Game](https://battleship-ai-game-07xw2t2r.devi
 - Mobile-friendly responsive design
 - Restart game functionality
 
+### Animations & Sound Effects (v2.0)
+
+- **Hit Animation**: Cell flashes and scales with explosion effect
+- **Miss Animation**: Ripple effect with water splash
+- **Sunk Animation**: Shake effect for all cells of the sunk ship
+- **AI Thinking**: Pulsing indicator during AI turn
+- **Sound Effects**: Fire, hit, miss, sunk, win, and loss sounds
+- **Sound Toggle**: Mute/unmute button in the top-right corner
+
 ## How to Play
 
 ### Ship Placement Phase
@@ -79,7 +88,9 @@ The built files will be in the `dist` directory.
 battleship-game/
 ├── src/
 │   ├── App.tsx          # Main game component
-│   ├── App.css          # Global styles
+│   ├── App.css          # Global styles + animations
+│   ├── lib/
+│   │   └── sounds.ts    # Sound manager (Web Audio API)
 │   ├── components/ui/   # shadcn/ui components
 │   └── main.tsx         # Entry point
 ├── BUGS.md              # Bug documentation

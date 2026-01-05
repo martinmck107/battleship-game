@@ -3,7 +3,8 @@ import './App.css'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-import { Anchor, Ship, Target, RotateCcw, Play } from 'lucide-react'
+import { Anchor, Ship, Target, RotateCcw, Play, Volume2, VolumeX } from 'lucide-react'
+import { soundManager } from '@/lib/sounds'
 
 // Type definitions for the game
 type CellState = 'empty' | 'ship' | 'hit' | 'miss' | 'sunk'
@@ -141,6 +142,32 @@ function App() {
   // AI targeting state for smart firing
   const [aiTargetQueue, setAiTargetQueue] = useState<{ row: number; col: number }[]>([])
   const [aiFiredCells, setAiFiredCells] = useState<Set<string>>(new Set())
+  
+  // Sound and animation state
+  const [isMuted, setIsMuted] = useState(false)
+  const [animatingCells, setAnimatingCells] = useState<Map<string, string>>(new Map())
+  const [isAiThinking, setIsAiThinking] = useState(false)
+
+  // Helper to trigger cell animation
+  const triggerCellAnimation = useCallback((row: number, col: number, animationType: string) => {
+    const key = `${row},${col}`
+    setAnimatingCells(prev => new Map(prev).set(key, animationType))
+    setTimeout(() => {
+      setAnimatingCells(prev => {
+        const next = new Map(prev)
+        next.delete(key)
+        return next
+      })
+    }, 500)
+  }, [])
+
+  // Toggle mute
+  const toggleMute = useCallback(() => {
+    setIsMuted(prev => {
+      soundManager.setMuted(!prev)
+      return !prev
+    })
+  }, [])
 
   // Check if all ships of a player are sunk
   const checkAllShipsSunk = useCallback((ships: PlacedShip[]): boolean => {
@@ -151,6 +178,9 @@ function App() {
   const handlePlayerFire = useCallback((row: number, col: number) => {
     if (gamePhase !== 'playing' || !isPlayerTurn) return
     if (aiGrid[row][col].state === 'hit' || aiGrid[row][col].state === 'miss' || aiGrid[row][col].state === 'sunk') return
+
+    // Play fire sound
+    soundManager.play('fire')
 
     const newAiGrid = aiGrid.map(r => r.map(c => ({ ...c })))
     const newAiShips = aiShips.map(s => ({ ...s, positions: [...s.positions] }))
@@ -167,19 +197,25 @@ function App() {
         // Check if ship is sunk
         if (newAiShips[shipIndex].hits === newAiShips[shipIndex].size) {
           newAiShips[shipIndex].sunk = true
-          // Mark all positions as sunk
+          // Mark all positions as sunk with animation
           newAiShips[shipIndex].positions.forEach(pos => {
             newAiGrid[pos.row][pos.col].state = 'sunk'
+            triggerCellAnimation(pos.row, pos.col, 'sunk')
           })
           setLastSunkShip(shipName)
           setMessage(`You sunk the enemy's ${shipName}!`)
+          soundManager.play('sunk')
         } else {
           setMessage('Hit!')
+          triggerCellAnimation(row, col, 'hit')
+          soundManager.play('hit')
         }
       }
     } else {
       newAiGrid[row][col].state = 'miss'
       setMessage('Miss!')
+      triggerCellAnimation(row, col, 'miss')
+      soundManager.play('miss')
     }
     
     setAiGrid(newAiGrid)
@@ -190,15 +226,22 @@ function App() {
       setWinner('player')
       setGamePhase('gameOver')
       setShowEndDialog(true)
+      soundManager.play('win')
       return
     }
     
     setIsPlayerTurn(false)
-  }, [gamePhase, isPlayerTurn, aiGrid, aiShips, checkAllShipsSunk])
+    setIsAiThinking(true)
+  }, [gamePhase, isPlayerTurn, aiGrid, aiShips, checkAllShipsSunk, triggerCellAnimation])
 
   // AI firing logic with smart targeting
   const handleAiFire = useCallback(() => {
     if (gamePhase !== 'playing' || isPlayerTurn) return
+
+    setIsAiThinking(false)
+    
+    // Play fire sound for AI
+    soundManager.play('fire')
 
     let targetRow: number = -1
     let targetCol: number = -1
@@ -254,20 +297,26 @@ function App() {
         // Check if ship is sunk
         if (newPlayerShips[shipIndex].hits === newPlayerShips[shipIndex].size) {
           newPlayerShips[shipIndex].sunk = true
-          // Mark all positions as sunk
+          // Mark all positions as sunk with animation
           newPlayerShips[shipIndex].positions.forEach(pos => {
             newPlayerGrid[pos.row][pos.col].state = 'sunk'
+            triggerCellAnimation(pos.row, pos.col, 'sunk')
           })
           // Clear target queue when ship is sunk
           newTargetQueue = []
           setMessage(`The enemy sunk your ${shipName}!`)
+          soundManager.play('sunk')
         } else {
           setMessage('The enemy hit your ship!')
+          triggerCellAnimation(targetRow, targetCol, 'hit')
+          soundManager.play('hit')
         }
       }
     } else {
       newPlayerGrid[targetRow][targetCol].state = 'miss'
       setMessage('The enemy missed!')
+      triggerCellAnimation(targetRow, targetCol, 'miss')
+      soundManager.play('miss')
     }
     
     setPlayerGrid(newPlayerGrid)
@@ -280,11 +329,12 @@ function App() {
       setWinner('ai')
       setGamePhase('gameOver')
       setShowEndDialog(true)
+      soundManager.play('lose')
       return
     }
     
     setIsPlayerTurn(true)
-  }, [gamePhase, isPlayerTurn, playerGrid, playerShips, aiTargetQueue, aiFiredCells, checkAllShipsSunk])
+  }, [gamePhase, isPlayerTurn, playerGrid, playerShips, aiTargetQueue, aiFiredCells, checkAllShipsSunk, triggerCellAnimation])
 
   // AI fires after player turn with a delay
   useEffect(() => {
@@ -359,6 +409,8 @@ function App() {
     setLastSunkShip(null)
     setAiTargetQueue([])
     setAiFiredCells(new Set())
+    setAnimatingCells(new Map())
+    setIsAiThinking(false)
   }
 
   // Get cell color based on state
@@ -417,6 +469,12 @@ function App() {
                  cell.state !== 'hit' && cell.state !== 'miss' && cell.state !== 'sunk')
               )
               
+              const cellKey = `${rowIndex},${colIndex}`
+              const animationType = animatingCells.get(cellKey)
+              const animationClass = animationType === 'hit' ? 'animate-hit animate-explosion' :
+                                    animationType === 'miss' ? 'animate-miss animate-splash' :
+                                    animationType === 'sunk' ? 'animate-sunk' : ''
+              
               return (
                 <div
                   key={colIndex}
@@ -427,6 +485,7 @@ function App() {
                     ${isClickable ? 'cursor-pointer' : 'cursor-default'}
                     flex items-center justify-center
                     transition-colors duration-150
+                    ${animationClass}
                   `}
                 >
                   {cell.state === 'hit' && <Target className="w-3 h-3 md:w-4 md:h-4 text-white" />}
@@ -463,13 +522,24 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-900 to-blue-700 p-4">
       {/* Header */}
-      <div className="text-center mb-6">
+      <div className="text-center mb-6 relative">
         <h1 className="text-3xl md:text-4xl font-bold text-white flex items-center justify-center gap-3">
           <Anchor className="w-8 h-8" />
           Battleship
           <Ship className="w-8 h-8" />
         </h1>
         <p className="text-blue-200 mt-2">{message}</p>
+        
+        {/* Sound Toggle Button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={toggleMute}
+          className="absolute top-0 right-0 text-white hover:bg-blue-800"
+          title={isMuted ? 'Unmute sounds' : 'Mute sounds'}
+        >
+          {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+        </Button>
       </div>
 
       {/* Game Phase: Placement */}
@@ -548,7 +618,10 @@ function App() {
                   {isPlayerTurn && gamePhase === 'playing' && (
                     <span className="text-sm font-normal text-green-600 ml-2">Your Turn!</span>
                   )}
-                  {!isPlayerTurn && gamePhase === 'playing' && (
+                  {!isPlayerTurn && gamePhase === 'playing' && isAiThinking && (
+                    <span className="text-sm font-normal text-yellow-600 ml-2 animate-thinking">AI Thinking...</span>
+                  )}
+                  {!isPlayerTurn && gamePhase === 'playing' && !isAiThinking && (
                     <span className="text-sm font-normal text-red-600 ml-2">Enemy Firing...</span>
                   )}
                 </CardTitle>
@@ -595,7 +668,7 @@ function App() {
 
       {/* Sunk Ship Notification */}
       {lastSunkShip && gamePhase === 'playing' && (
-        <div className="fixed bottom-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg animate-pulse">
+        <div className="fixed bottom-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg animate-slide-in">
           Ship Sunk: {lastSunkShip}
         </div>
       )}
