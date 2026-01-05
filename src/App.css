@@ -119,3 +119,168 @@
 .animate-explosion {
   animation: explosion 0.3s ease-out;
 }
+
+/* Ship sprite styles */
+.ship-sprite {
+  position: absolute;
+  pointer-events: none;
+  z-index: 10;
+  border-radius: 4px;
+  transition: opacity 0.3s ease;
+}
+
+.ship-sprite-body {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Ship gradient backgrounds for visual appeal */
+.ship-carrier {
+  background: linear-gradient(135deg, #4a5568 0%, #2d3748 50%, #1a202c 100%);
+  border: 2px solid #718096;
+}
+
+.ship-battleship {
+  background: linear-gradient(135deg, #553c9a 0%, #44337a 50%, #322659 100%);
+  border: 2px solid #805ad5;
+}
+
+.ship-cruiser {
+  background: linear-gradient(135deg, #2c7a7b 0%, #285e61 50%, #234e52 100%);
+  border: 2px solid #38b2ac;
+}
+
+.ship-submarine {
+  background: linear-gradient(135deg, #744210 0%, #5a3e1b 50%, #3d2914 100%);
+  border: 2px solid #d69e2e;
+}
+
+.ship-destroyer {
+  background: linear-gradient(135deg, #9b2c2c 0%, #822727 50%, #63171b 100%);
+  border: 2px solid #fc8181;
+}
+
+/* Ship bow (front) styling */
+.ship-sprite::before {
+  content: '';
+  position: absolute;
+  background: inherit;
+  border-radius: 50%;
+}
+
+.ship-sprite.horizontal::before {
+  right: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 80%;
+}
+
+.ship-sprite.vertical::before {
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  height: 12px;
+}
+
+/* Hit marker on ship */
+.ship-hit-marker {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 15;
+}
+
+.ship-hit-marker::after {
+  content: '';
+  width: 60%;
+  height: 60%;
+  background: radial-gradient(circle, #ef4444 0%, #dc2626 50%, #991b1b 100%);
+  border-radius: 50%;
+  box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.6);
+  animation: hit-pulse 1s ease-in-out infinite;
+}
+
+@keyframes hit-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.1); opacity: 1; }
+}
+
+/* Smoke effect for hits */
+.ship-smoke {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.ship-smoke::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 20px;
+  background: radial-gradient(circle, rgba(100, 100, 100, 0.6) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: smoke-rise 2s ease-out infinite;
+}
+
+@keyframes smoke-rise {
+  0% { opacity: 0.8; transform: translateX(-50%) translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-20px) scale(1.5); }
+}
+
+/* Ship sinking animation */
+@keyframes ship-sink {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  30% {
+    transform: translateY(5px) rotate(2deg);
+    opacity: 0.9;
+  }
+  60% {
+    transform: translateY(15px) rotate(-3deg);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(25px) rotate(5deg);
+    opacity: 0;
+  }
+}
+
+.ship-sinking {
+  animation: ship-sink 1s ease-in forwards;
+}
+
+/* Ship sunk state (after animation) */
+.ship-sunk-final {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Grid container needs relative positioning for ship sprites */
+.grid-container {
+  position: relative;
+  display: inline-block;
+}
+
+/* Enemy ship (hidden until sunk) */
+.ship-hidden {
+  opacity: 0;
+}
+
+/* Enemy ship revealed when sunk */
+.ship-revealed {
+  opacity: 1;
+}

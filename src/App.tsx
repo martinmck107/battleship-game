@@ -23,6 +23,8 @@ interface PlacedShip {
   positions: { row: number; col: number }[]
   hits: number
   sunk: boolean
+  orientation: Orientation
+  isSinking: boolean // Track if currently playing sink animation
 }
 
 interface Cell {
@@ -112,6 +114,8 @@ const placeShipsRandomly = (): { grid: Cell[][]; ships: PlacedShip[] } => {
           positions: result.positions,
           hits: 0,
           sunk: false,
+          orientation: orientation,
+          isSinking: false,
         })
         placed = true
       }
@@ -147,6 +151,9 @@ function App() {
   const [isMuted, setIsMuted] = useState(false)
   const [animatingCells, setAnimatingCells] = useState<Map<string, string>>(new Map())
   const [isAiThinking, setIsAiThinking] = useState(false)
+  
+  // Track ships that have finished sinking animation
+  const [sunkShipsFinished, setSunkShipsFinished] = useState<Set<string>>(new Set())
 
   // Helper to trigger cell animation
   const triggerCellAnimation = useCallback((row: number, col: number, animationType: string) => {
@@ -197,14 +204,18 @@ function App() {
         // Check if ship is sunk
         if (newAiShips[shipIndex].hits === newAiShips[shipIndex].size) {
           newAiShips[shipIndex].sunk = true
+          newAiShips[shipIndex].isSinking = true
           // Mark all positions as sunk with animation
           newAiShips[shipIndex].positions.forEach(pos => {
             newAiGrid[pos.row][pos.col].state = 'sunk'
-            triggerCellAnimation(pos.row, pos.col, 'sunk')
           })
           setLastSunkShip(shipName)
           setMessage(`You sunk the enemy's ${shipName}!`)
           soundManager.play('sunk')
+          // After sinking animation completes, mark ship as finished sinking
+          setTimeout(() => {
+            setSunkShipsFinished(prev => new Set(prev).add(`ai-${shipName}`))
+          }, 1000)
         } else {
           setMessage('Hit!')
           triggerCellAnimation(row, col, 'hit')
@@ -297,15 +308,19 @@ function App() {
         // Check if ship is sunk
         if (newPlayerShips[shipIndex].hits === newPlayerShips[shipIndex].size) {
           newPlayerShips[shipIndex].sunk = true
-          // Mark all positions as sunk with animation
+          newPlayerShips[shipIndex].isSinking = true
+          // Mark all positions as sunk
           newPlayerShips[shipIndex].positions.forEach(pos => {
             newPlayerGrid[pos.row][pos.col].state = 'sunk'
-            triggerCellAnimation(pos.row, pos.col, 'sunk')
           })
           // Clear target queue when ship is sunk
           newTargetQueue = []
           setMessage(`The enemy sunk your ${shipName}!`)
           soundManager.play('sunk')
+          // After sinking animation completes, mark ship as finished sinking
+          setTimeout(() => {
+            setSunkShipsFinished(prev => new Set(prev).add(`player-${shipName}`))
+          }, 1000)
         } else {
           setMessage('The enemy hit your ship!')
           triggerCellAnimation(targetRow, targetCol, 'hit')
@@ -363,6 +378,8 @@ function App() {
       positions: result.positions,
       hits: 0,
       sunk: false,
+      orientation: orientation,
+      isSinking: false,
     }])
     
     const newAvailableShips = availableShips.filter(s => s.name !== selectedShip.name)
@@ -411,17 +428,113 @@ function App() {
     setAiFiredCells(new Set())
     setAnimatingCells(new Map())
     setIsAiThinking(false)
+    setSunkShipsFinished(new Set())
+  }
+
+  // Calculate cell size based on screen size (matches CSS w-6 h-6 md:w-8 md:h-8)
+  const getCellSize = (): number => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+      return 32 // md:w-8 md:h-8 = 32px
+    }
+    return 24 // w-6 h-6 = 24px
+  }
+
+  // Render ship sprites as multi-cell visual objects
+  const renderShipSprites = (
+    ships: PlacedShip[],
+    isPlayerBoard: boolean,
+    grid: Cell[][]
+  ) => {
+    const cellSize = getCellSize()
+    const headerOffset = cellSize // Account for row/column headers
+    
+    return ships.map(ship => {
+      // Determine visibility based on fog of war rules
+      // Player board: always visible
+      // AI board: hidden until sunk (then revealed during sinking animation)
+      const isVisible = isPlayerBoard || ship.sunk
+      
+      // Check if sinking animation has finished
+      const shipKey = `${isPlayerBoard ? 'player' : 'ai'}-${ship.name}`
+      const hasSinkingFinished = sunkShipsFinished.has(shipKey)
+      
+      // Don't render if sinking animation is complete
+      if (hasSinkingFinished) return null
+      
+      // Calculate position based on first cell of ship
+      const startPos = ship.positions[0]
+      const isHorizontal = ship.orientation === 'horizontal'
+      
+      // Calculate dimensions
+      const width = isHorizontal ? ship.size * cellSize : cellSize
+      const height = isHorizontal ? cellSize : ship.size * cellSize
+      
+      // Calculate position (add header offset)
+      const left = headerOffset + startPos.col * cellSize
+      const top = headerOffset + startPos.row * cellSize
+      
+      // Get ship class name for styling
+      const shipClassName = `ship-${ship.name.toLowerCase()}`
+      
+      // Determine animation state
+      const isSinking = ship.isSinking && !hasSinkingFinished
+      
+      // Calculate hit positions relative to ship
+      const hitPositions = ship.positions.map((pos, index) => {
+        const cellState = grid[pos.row][pos.col].state
+        return {
+          index,
+          isHit: cellState === 'hit' || cellState === 'sunk'
+        }
+      })
+      
+      return (
+        <div
+          key={ship.name}
+          className={`
+            ship-sprite ${shipClassName}
+            ${isHorizontal ? 'horizontal' : 'vertical'}
+            ${isSinking ? 'ship-sinking' : ''}
+            ${!isVisible ? 'ship-hidden' : ''}
+          `}
+          style={{
+            left: `${left}px`,
+            top: `${top}px`,
+            width: `${width}px`,
+            height: `${height}px`,
+          }}
+        >
+          <div className="ship-sprite-body">
+            {/* Render hit markers on ship body */}
+            {hitPositions.map(({ index, isHit }) => {
+              if (!isHit) return null
+              
+              const markerStyle = isHorizontal
+                ? { left: `${index * cellSize}px`, top: 0, width: `${cellSize}px`, height: `${cellSize}px` }
+                : { left: 0, top: `${index * cellSize}px`, width: `${cellSize}px`, height: `${cellSize}px` }
+              
+              return (
+                <div key={index} className="ship-hit-marker" style={markerStyle}>
+                  {!ship.sunk && <div className="ship-smoke" />}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )
+    })
   }
 
   // Get cell color based on state
-  const getCellColor = (cell: Cell, isPlayerBoard: boolean, isHovering: boolean = false): string => {
+  const getCellColor = (cell: Cell, isPlayerBoard: boolean, isHovering: boolean = false, showShipColor: boolean = true): string => {
     if (isHovering && gamePhase === 'placement') {
       return 'bg-blue-300'
     }
     
     switch (cell.state) {
       case 'ship':
-        return isPlayerBoard ? 'bg-gray-600' : 'bg-blue-500'
+        // Don't show ship color if using ship sprites (showShipColor = false)
+        return showShipColor ? (isPlayerBoard ? 'bg-gray-600' : 'bg-blue-500') : 'bg-blue-500'
       case 'hit':
         return 'bg-red-500'
       case 'miss':
@@ -437,12 +550,16 @@ function App() {
   const renderGrid = (
     grid: Cell[][],
     isPlayerBoard: boolean,
+    ships: PlacedShip[],
     onClick?: (row: number, col: number) => void
   ) => {
     const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
     
     return (
-      <div className="inline-block">
+      <div className="grid-container">
+        {/* Ship sprites layer */}
+        {renderShipSprites(ships, isPlayerBoard, grid)}
+        
         {/* Column headers */}
         <div className="flex">
           <div className="w-6 h-6 md:w-8 md:h-8"></div>
@@ -475,22 +592,24 @@ function App() {
                                     animationType === 'miss' ? 'animate-miss animate-splash' :
                                     animationType === 'sunk' ? 'animate-sunk' : ''
               
+              // For player board, don't show ship color since we have sprites
+              // For AI board, don't show ship color (fog of war)
+              const showShipColor = false
+              
               return (
                 <div
                   key={colIndex}
                   onClick={() => isClickable && onClick(rowIndex, colIndex)}
                   className={`
                     w-6 h-6 md:w-8 md:h-8 border border-blue-700 
-                    ${getCellColor(cell, isPlayerBoard)}
+                    ${getCellColor(cell, isPlayerBoard, false, showShipColor)}
                     ${isClickable ? 'cursor-pointer' : 'cursor-default'}
                     flex items-center justify-center
                     transition-colors duration-150
                     ${animationClass}
                   `}
                 >
-                  {cell.state === 'hit' && <Target className="w-3 h-3 md:w-4 md:h-4 text-white" />}
                   {cell.state === 'miss' && <div className="w-2 h-2 rounded-full bg-gray-500" />}
-                  {cell.state === 'sunk' && <Target className="w-3 h-3 md:w-4 md:h-4 text-white" />}
                 </div>
               )
             })}
@@ -582,7 +701,7 @@ function App() {
               </div>
               
               <div className="flex justify-center">
-                {renderGrid(playerGrid, true, handlePlacement)}
+                {renderGrid(playerGrid, true, playerShips, handlePlacement)}
               </div>
             </CardContent>
           </Card>
@@ -603,7 +722,7 @@ function App() {
               </CardHeader>
               <CardContent>
                 <div className="flex justify-center">
-                  {renderGrid(playerGrid, true)}
+                  {renderGrid(playerGrid, true, playerShips)}
                 </div>
                 {renderShipStatus(playerShips, 'Your Ships')}
               </CardContent>
@@ -628,7 +747,7 @@ function App() {
               </CardHeader>
               <CardContent>
                 <div className="flex justify-center">
-                  {renderGrid(aiGrid, false, handlePlayerFire)}
+                  {renderGrid(aiGrid, false, aiShips, handlePlayerFire)}
                 </div>
                 {renderShipStatus(aiShips, 'Enemy Ships')}
               </CardContent>

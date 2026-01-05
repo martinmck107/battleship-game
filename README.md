@@ -24,6 +24,18 @@ Play the game online: [Battleship Game](https://battleship-ai-game-07xw2t2r.devi
 - **Sound Effects**: Fire, hit, miss, sunk, win, and loss sounds
 - **Sound Toggle**: Mute/unmute button in the top-right corner
 
+### Ship Sprites & Sinking Animation (v3.0)
+
+- **Visual Ship Sprites**: Ships render as multi-cell visual objects with unique color gradients
+  - Carrier (5): Dark gray
+  - Battleship (4): Purple
+  - Cruiser (3): Teal/green
+  - Submarine (3): Brown/gold
+  - Destroyer (2): Red
+- **Hit Markers on Ships**: Red pulsing circles appear on ship bodies when hit, with smoke effects
+- **Fog of War**: Player ships always visible, AI ships hidden until sunk
+- **Sinking Animation**: Ships translate downward, fade, and rotate when destroyed (~1 second)
+
 ## How to Play
 
 ### Ship Placement Phase

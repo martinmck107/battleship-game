@@ -115,6 +115,62 @@ No bugs were discovered during animation/sound testing.
 
 ---
 
+## Ship Sprites & Sinking Animation (v3.0)
+
+### Implementation Notes
+
+The following visual enhancements were added to improve ship representation:
+
+**Ship Sprite Features:**
+- Ships render as multi-cell visual objects (not separate squares)
+- Each ship type has a unique color gradient:
+  - Carrier (5): Dark gray
+  - Battleship (4): Purple
+  - Cruiser (3): Teal/green
+  - Submarine (3): Brown/gold
+  - Destroyer (2): Red
+- Ships align exactly to grid cells
+- Ships respect orientation (horizontal/vertical)
+- Ships scale responsively with board size
+
+**Fog of War:**
+- Player board: Ships are always visible
+- AI board: Ships hidden initially, revealed only when sunk
+
+**Hit Markers:**
+- Hit markers display on ship bodies (red pulsing circles)
+- Smoke effect appears on hit positions
+- Hits accumulate visually along the ship body
+
+**Sinking Animation:**
+- Triggers when all cells of a ship are hit
+- Animation: Ship translates downward, fades opacity, and slightly rotates
+- Duration: ~1000ms
+- Ship remains visible until animation completes
+- After animation: Ship becomes non-interactive
+
+### Visual Bugs Section
+
+No visual bugs were discovered during testing. The following potential issues were proactively addressed:
+
+1. **Ship sprite alignment** - Ships align correctly to grid cells using absolute positioning with calculated offsets
+2. **Sinking animation triggering** - Animation triggers exactly once per ship using isSinking state flag
+3. **Hit markers syncing** - Hit markers sync correctly with game logic by reading cell state from grid
+4. **Z-index layering** - Ship sprites render above grid cells but below UI elements
+
+### Testing Results
+
+All ship sprite features were tested and verified to work correctly:
+- Ships visibly occupy correct cells
+- Orientation matches logic
+- Hits show correctly on ship bodies
+- Sinking animation triggers exactly once
+- Animation does not block gameplay
+- No layout shift or board misalignment
+- Fog of war works correctly (AI ships hidden until sunk)
+
+---
+
 ## Potential Future Improvements
 
 1. Add ship preview during placement (show where ship will be placed before clicking)
